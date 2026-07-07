@@ -35,6 +35,12 @@ data class ClipAnalysisResult(
 
 class GeminiMetaGenerator {
 
+    private fun getCacheFile(context: Context, url: String): java.io.File {
+        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
+        return java.io.File(context.cacheDir, "whisper_cache_$hash.json")
+    }
+
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(180, TimeUnit.SECONDS)
@@ -72,7 +78,23 @@ class GeminiMetaGenerator {
         var whisperError = ""
         var videoInfo = ""
         
-        if (!skipWhisperX) {
+        val cacheFile = getCacheFile(context, videoUrl)
+        if (skipWhisperX) {
+            SystemDiagnosticTracker.addLog("GEMINI", "ميزة تخطي WhisperX مفعلة. جاري فحص وجود معلومات مخزنة مسبقاً...")
+            if (cacheFile.exists()) {
+                try {
+                    val cachedJson = JSONObject(cacheFile.readText())
+                    transcription = cachedJson.optString("transcription", "")
+                    videoInfo = cachedJson.optString("videoInfo", "")
+                    SystemDiagnosticTracker.addLog("GEMINI", "تم العثور على معلومات مخزنة! تخطي المعالجة الصوتية.")
+                } catch (e: Exception) {
+                    return@withContext ClipAnalysisResult(relevance = 0f, analysis = "", error = "بيانات مخزنة تالفة")
+                }
+            } else {
+                SystemDiagnosticTracker.addLog("GEMINI", "❌ لم يتم العثور على أي معلومات مخزنة لهذا الرابط. إيقاف العملية.")
+                return@withContext ClipAnalysisResult(relevance = 0f, analysis = "", error = "ليست هناك اي معلومات لهذا الرابط. يرجى إيقاف ميزة التخطي وإعادة المحاولة.")
+            }
+        } else {
             SystemDiagnosticTracker.addLog("GEMINI", "Calling WhisperX for audio transcription of URL: $videoUrl")
             try {
                 val whisperClient = WhisperXClient()
@@ -92,6 +114,14 @@ class GeminiMetaGenerator {
                     transcription = textBuilder.toString().trim()
                     SystemDiagnosticTracker.addLog("WHISPER", "Transcription successful: ${transcription.take(50)}...")
                 }
+                
+                // Save to cache
+                val cacheObj = JSONObject().apply {
+                    put("transcription", transcription)
+                    put("videoInfo", videoInfo)
+                }
+                cacheFile.writeText(cacheObj.toString())
+                SystemDiagnosticTracker.addLog("GEMINI", "تم حفظ معلومات الرابط في الذاكرة المؤقتة لاستخدامها لاحقاً.")
             } catch (e: Exception) {
                 whisperError = e.message ?: "Unknown"
                 SystemDiagnosticTracker.addLog("WHISPER", "Failed to extract text: ${e.message}")
@@ -165,23 +195,30 @@ class GeminiMetaGenerator {
                     val parts = contentObj.getJSONArray("parts")
                     if (parts.length() > 0) {
                         var rawText = parts.getJSONObject(0).getString("text").trim()
+                        SystemDiagnosticTracker.addLog("GEMINI", "Raw Gemini Response: $rawText")
+                        
                         if (rawText.startsWith("```json")) {
                             rawText = rawText.substringAfter("```json").substringBeforeLast("```").trim()
                         } else if (rawText.startsWith("```")) {
                             rawText = rawText.substringAfter("```").substringBeforeLast("```").trim()
                         }
                         
-                        val jsonOutput = JSONObject(rawText)
-                        return@withContext ClipAnalysisResult(
-                            relevance = 1.0f,
-                            analysis = "OK",
-                            surah = jsonOutput.optInt("surah", 1),
-                            startAyah = jsonOutput.optInt("startAyah", 1),
-                            endAyah = jsonOutput.optInt("endAyah", 5),
-                            reciterName = jsonOutput.optString("reciterName", "غير معروف"),
-                            title = jsonOutput.optString("title", "تلاوة خاشعة"),
-                            category = jsonOutput.optString("category", "سكينة")
-                        )
+                        try {
+                            val jsonOutput = JSONObject(rawText)
+                            return@withContext ClipAnalysisResult(
+                                relevance = 1.0f,
+                                analysis = "OK",
+                                surah = jsonOutput.optInt("surah", 1),
+                                startAyah = jsonOutput.optInt("startAyah", 1),
+                                endAyah = jsonOutput.optInt("endAyah", 5),
+                                reciterName = jsonOutput.optString("reciterName", "غير معروف"),
+                                title = jsonOutput.optString("title", "تلاوة خاشعة"),
+                                category = jsonOutput.optString("category", "سكينة")
+                            )
+                        } catch (e: Exception) {
+                            SystemDiagnosticTracker.addLog("GEMINI", "❌ خطأ في تحليل استجابة Gemini: ${e.message}")
+                            return@withContext ClipAnalysisResult(relevance = 0f, analysis = "", error = "فشل تحليل معلومات المقطع من الذكاء الاصطناعي")
+                        }
                     }
                 }
             } else {

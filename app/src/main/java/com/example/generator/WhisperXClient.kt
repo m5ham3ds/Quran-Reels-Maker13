@@ -12,6 +12,37 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+
+import okio.BufferedSink
+import okio.source
+
+class ProgressRequestBody(
+    private val file: File,
+    private val contentType: MediaType?,
+    private val onProgress: (Int) -> Unit
+) : RequestBody() {
+    override fun contentType() = contentType
+    override fun contentLength() = file.length()
+    override fun writeTo(sink: BufferedSink) {
+        val length = file.length()
+        val buffer = ByteArray(8192)
+        var uploaded = 0L
+        file.inputStream().use { input ->
+            var read: Int
+            var lastProgress = 0
+            while (input.read(buffer).also { read = it } != -1) {
+                uploaded += read
+                sink.write(buffer, 0, read)
+                val progress = ((uploaded.toFloat() / length) * 100).toInt()
+                if (progress - lastProgress >= 5 || progress == 100) {
+                    onProgress(progress)
+                    lastProgress = progress
+                }
+            }
+        }
+    }
+}
+
 class WhisperXClient {
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
@@ -35,7 +66,10 @@ class WhisperXClient {
                 .addFormDataPart(
                     "files",
                     file.name,
-                    file.asRequestBody("audio/*".toMediaType())
+                    ProgressRequestBody(file, "audio/*".toMediaType()) { percent ->
+                        onProgress("جاري رفع الملف الصوتي للخادم... $percent%")
+                        SystemDiagnosticTracker.addLog("UPLOAD", "رفع الملف الصوتي: $percent%")
+                    }
                 )
                 .build()
             val request = Request.Builder()
