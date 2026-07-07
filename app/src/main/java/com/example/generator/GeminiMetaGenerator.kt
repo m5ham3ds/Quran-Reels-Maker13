@@ -222,13 +222,16 @@ class GeminiMetaGenerator {
                     }
                 }
             } else {
-                SystemDiagnosticTracker.addLog("GEMINI", "HTTP Error ${response.code}: ${response.body?.string()}")
+                val errorBody = response.body?.string() ?: ""
+                SystemDiagnosticTracker.addLog("GEMINI", "HTTP Error ${response.code}: $errorBody")
+                return@withContext ClipAnalysisResult(relevance = 0f, analysis = "", error = "حدث خطأ في الاستجابة: ${response.code} - ${if (response.code == 503) "النموذج يواجه ضغطاً كبيراً، يرجى المحاولة لاحقاً أو تغيير النموذج" else "غير معروف"}")
             }
         } catch (e: Exception) {
             SystemDiagnosticTracker.addLog("GEMINI", "Error calling Gemini: ${e.message}")
             e.printStackTrace()
+            return@withContext ClipAnalysisResult(relevance = 0f, analysis = "", error = "خطأ في الاتصال بالذكاء الاصطناعي: ${e.message}")
         }
         
-        return@withContext null
+        return@withContext ClipAnalysisResult(relevance = 0f, analysis = "", error = "لم يتم الحصول على أي معلومات")
     }
 }
