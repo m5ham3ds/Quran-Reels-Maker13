@@ -1,52 +1,25 @@
 --- app/src/main/java/com/example/generator/VideoGenerator.kt
 +++ app/src/main/java/com/example/generator/VideoGenerator.kt
-@@ -193,6 +193,8 @@
-         var bgBitmap: Bitmap? = null
-         var retriever: MediaMetadataRetriever? = null
-         
-+        checkCancellationAndPause()
-+
-         try {
-             val verses = mutableListOf<VerseData>()
-             val totalAyahs = endAyah - startAyah + 1
-@@ -481,6 +483,7 @@
-             } else {
-                 // 2. Download translation & audio files, then transcode to AAC/M4A for 100% video muxing compatibility
-                 for (i in 0 until totalAyahs) {
-+                checkCancellationAndPause()
-                 val ayah = startAyah + i
-                 SystemDiagnosticTracker.addLog("AYAH_PROCESS", "=== بدء معالجة الآية رقم $ayah من السورة $surah ===")
-                 onProgress(if (isArabic) "جاري تحميل الآية $ayah وحفظ مراجع الصوت..." else "Downloading reference audio for Ayah $ayah...", 0.05f + (i * 0.2f / totalAyahs))
-@@ -621,6 +624,8 @@
+@@ -1617,7 +1617,7 @@
+     }
+ 
+-    private fun checkCancellationAndPause() {
+-        if (com.example.service.VideoGenerationService.isCancelled) {
++    private suspend fun checkCancellationAndPause() {
++        if (com.example.service.VideoGenerationService.isCancelled || !kotlinx.coroutines.currentCoroutineContext().isActive) {
+             throw kotlinx.coroutines.CancellationException("تم إلغاء عملية إنتاج الفيديو")
+         }
+         if (com.example.service.VideoGenerationService.isPaused) {
+             synchronized(com.example.service.VideoGenerationService.pauseLock) {
+-                while (com.example.service.VideoGenerationService.isPaused && !com.example.service.VideoGenerationService.isCancelled) {
++                while (com.example.service.VideoGenerationService.isPaused && !com.example.service.VideoGenerationService.isCancelled && kotlinx.coroutines.currentCoroutineContext().isActive) {
+                     try {
+                         com.example.service.VideoGenerationService.pauseLock.wait(100)
+                     } catch (e: Exception) {}
+                 }
              }
+-            if (com.example.service.VideoGenerationService.isCancelled) {
++            if (com.example.service.VideoGenerationService.isCancelled || !kotlinx.coroutines.currentCoroutineContext().isActive) {
+                 throw kotlinx.coroutines.CancellationException("تم إلغاء عملية إنتاج الفيديو")
              }
-             
-+            checkCancellationAndPause()
-+            
-             // Save timeline for editor preview
-             try {
-                 val timelineArray = org.json.JSONArray()
-@@ -647,6 +652,8 @@
-             var videoLoaded = false
-             val downloadedVideoFiles = mutableListOf<File>()
-             
-+            checkCancellationAndPause()
-+            
-             if (!isRetry) {
-                 try {
-                     val files = context.cacheDir.listFiles()
-@@ -777,6 +784,8 @@
-             }
-             
-             if (!videoLoaded) {
-+                checkCancellationAndPause()
-                 onProgress(if (isArabic) "إعداد خلفية بديلة..." else "Setting up fallback background...", 0.45f)
-                 SystemDiagnosticTracker.addLog("BACKGROUND", "إعداد خلفية داكنة متدرجة بسبب عدم توفر أو فشل تحميل فيديو")
-                 
-@@ -936,6 +945,7 @@
-             // We do rendering by grabbing frames from video, overlaying text, and saving to cache files or feeding encoder
-             onProgress(if (isArabic) "تجهيز محرك تصيير الفيديو..." else "Preparing video rendering engine...", 0.48f)
-             SystemDiagnosticTracker.addLog("RENDER", "بدء تصيير إطارات الفيديو (Rendering Frames)...")
-+            checkCancellationAndPause()
-             
-             // ... Codec configuration ...
+         }

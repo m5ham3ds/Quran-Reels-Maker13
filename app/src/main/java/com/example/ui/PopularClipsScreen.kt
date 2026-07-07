@@ -1,5 +1,12 @@
 package com.example.ui
 
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import android.content.Context
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -80,6 +87,16 @@ fun PopularClipsScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
+
+    var delayedGenerateAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ -> 
+        delayedGenerateAction?.invoke()
+        delayedGenerateAction = null
+    }
+
     val backgroundKeywords by settingsManager.backgroundKeywords.collectAsState(initial = emptySet())
     val deletedBuiltinClips by settingsManager.deletedBuiltinClips.collectAsState(initial = emptySet())
     
@@ -1056,15 +1073,52 @@ fun PopularClipsScreen(
                                         previewPlayer.stop()
                                         playingClipId = null
                                         
-                                        viewModel.generate(
-                                            context = context,
-                                            surah = clip.surah,
-                                            startAyah = clip.ayahStart,
-                                            endAyah = clip.ayahEnd,
-                                            reciterId = "popular|" + clip.reciterId,
-                                            videoQuery = clip.videoQuery
-                                        )
-                                        Toast.makeText(context, if (isArabic) "بدء المونتاج لـ ${clip.reciter}..." else "Starting production...", Toast.LENGTH_SHORT).show()
+                                        val onGenerateAction = {
+                                            viewModel.generate(
+                                                context = context,
+                                                surah = clip.surah,
+                                                startAyah = clip.ayahStart,
+                                                endAyah = clip.ayahEnd,
+                                                reciterId = "popular|" + clip.reciterId,
+                                                videoQuery = clip.videoQuery
+                                            )
+                                            Toast.makeText(context, if (isArabic) "بدء المونتاج لـ ${clip.reciter}..." else "Starting production...", Toast.LENGTH_SHORT).show()
+                                        }
+
+                                        val permissionsNeeded = mutableListOf<String>()
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                                permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
+                                            }
+                                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) {
+                                                permissionsNeeded.add(Manifest.permission.READ_MEDIA_VIDEO)
+                                            }
+                                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                                                permissionsNeeded.add(Manifest.permission.READ_MEDIA_AUDIO)
+                                            }
+                                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                                                permissionsNeeded.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                            }
+                                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                                                permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                                            }
+                                        } else {
+                                            try {
+                                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                                                    permissionsNeeded.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                                }
+                                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                                                    permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                                                }
+                                            } catch (e: Exception) {}
+                                        }
+
+                                        if (permissionsNeeded.isNotEmpty()) {
+                                            delayedGenerateAction = onGenerateAction
+                                            permissionLauncher.launch(permissionsNeeded.toTypedArray())
+                                        } else {
+                                            onGenerateAction()
+                                        }
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()

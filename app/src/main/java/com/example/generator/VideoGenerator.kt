@@ -26,6 +26,7 @@ import com.example.settings.SettingsManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.isActive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
@@ -1552,8 +1553,8 @@ class VideoGenerator {
         return result
     }
 
-    private fun downloadAudio(url: String, destFile: File) {
-        synchronized(destFile.absolutePath.intern()) {
+    private suspend fun downloadAudio(url: String, destFile: File) {
+        if(true) {
             if (destFile.exists() && destFile.length() > 0) return
             
             val fixedUrl = url
@@ -1616,8 +1617,8 @@ class VideoGenerator {
         }
     }
 
-    private fun checkCancellationAndPause() {
-        if (com.example.service.VideoGenerationService.isCancelled) {
+    private suspend fun checkCancellationAndPause() {
+        if (com.example.service.VideoGenerationService.isCancelled || !kotlinx.coroutines.currentCoroutineContext().isActive) {
             throw kotlinx.coroutines.CancellationException("تم إلغاء عملية إنتاج الفيديو")
         }
         if (com.example.service.VideoGenerationService.isPaused) {
@@ -1628,13 +1629,13 @@ class VideoGenerator {
                     } catch (e: Exception) {}
                 }
             }
-            if (com.example.service.VideoGenerationService.isCancelled) {
+            if (com.example.service.VideoGenerationService.isCancelled || !kotlinx.coroutines.currentCoroutineContext().isActive) {
                 throw kotlinx.coroutines.CancellationException("تم إلغاء عملية إنتاج الفيديو")
             }
         }
     }
 
-    private fun transcodeMp3ToAac(inputPath: String, outputPath: String, extractStartUs: Long? = null, extractEndUs: Long? = null): List<Pair<Long, Float>> {
+    private suspend fun transcodeMp3ToAac(inputPath: String, outputPath: String, extractStartUs: Long? = null, extractEndUs: Long? = null): List<Pair<Long, Float>> {
         val rawEnergySamples = mutableListOf<Pair<Long, Float>>()
         val extractor = MediaExtractor().apply { setDataSource(inputPath) }
         if (extractor.trackCount == 0) {
@@ -2604,7 +2605,7 @@ class VideoGenerator {
         return clean3.replace("\\s+".toRegex(), " ").trim()
     }
 
-    private fun alignWithWhisperX(context: Context, audioFile: File?, mediaUrl: String?, text: String): Pair<List<WordSegment>, List<SmartChunk>> {
+    private suspend fun alignWithWhisperX(context: Context, audioFile: File?, mediaUrl: String?, text: String): Pair<List<WordSegment>, List<SmartChunk>> {
         val cached = AlignmentCacheManager.getCachedAlignment(context, mediaUrl, text)
         if (cached != null) {
             SystemDiagnosticTracker.addLog("WHISPERX_API", "تم العثور على بيانات مواءمة محفوظة مسبقاً، سيتم استخدامها لتوفير الوقت.")
