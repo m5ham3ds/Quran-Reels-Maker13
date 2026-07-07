@@ -83,6 +83,7 @@ class WhisperXClient {
         var chunksJson = ""
         var outAudioUrl = ""
         var errorLog = ""
+        var videoInfo = ""
 
         client.newCall(streamReq).execute().use { streamRes ->
             val source = streamRes.body?.source()
@@ -95,11 +96,21 @@ class WhisperXClient {
                         val dataArray = JSONArray(dataJson)
                         if (dataArray.length() >= 8) {
                             chunksJson = dataArray.optString(4, "[]")
-                            val audioObj = dataArray.optJSONObject(6)
-                            if (audioObj != null && audioObj.has("url")) {
-                                outAudioUrl = audioObj.getString("url")
+                            val audioOpt = dataArray.opt(6)
+                            if (audioOpt is JSONObject) {
+                                if (audioOpt.has("url")) {
+                                    outAudioUrl = audioOpt.getString("url")
+                                    if (outAudioUrl.startsWith("/")) {
+                                        outAudioUrl = "$baseUrl$outAudioUrl"
+                                    }
+                                } else if (audioOpt.has("path")) {
+                                    outAudioUrl = "$baseUrl/file=${audioOpt.getString("path")}"
+                                }
+                            } else if (audioOpt is String && audioOpt.isNotBlank()) {
+                                outAudioUrl = if (audioOpt.startsWith("http")) audioOpt else "$baseUrl/file=$audioOpt"
                             }
                             errorLog = dataArray.optString(7, "")
+                            videoInfo = dataArray.optString(1, "")
                         }
                     }
                 } else if (line.startsWith("event: error")) {
@@ -117,12 +128,13 @@ class WhisperXClient {
             }
         }
 
-        ProcessResult(chunksJson, outAudioUrl, errorLog)
+        ProcessResult(chunksJson, outAudioUrl, errorLog, videoInfo)
     }
 }
 
 data class ProcessResult(
     val chunksJson: String,
     val audioUrl: String,
-    val errorLog: String
+    val errorLog: String,
+    val videoInfo: String = ""
 )

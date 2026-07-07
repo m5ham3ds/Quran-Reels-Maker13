@@ -2985,7 +2985,7 @@ class VideoGenerator {
     ): List<String>? = withContext(Dispatchers.IO) {
         val settingsManager = SettingsManager(context)
         var apiKey = settingsManager.geminiApiKey.first()
-        val geminiModel = settingsManager.geminiModel.first()
+        val geminiModel = settingsManager.geminiModel.first().ifBlank { "gemini-1.5-pro" }
         if (apiKey.isBlank()) {
             apiKey = com.example.BuildConfig.GEMINI_API_KEY
         }

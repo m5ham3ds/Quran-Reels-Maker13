@@ -70,6 +70,7 @@ class GeminiMetaGenerator {
 
         var transcription = ""
         var whisperError = ""
+        var videoInfo = ""
         
         if (!skipWhisperX) {
             SystemDiagnosticTracker.addLog("GEMINI", "Calling WhisperX for audio transcription of URL: $videoUrl")
@@ -78,6 +79,8 @@ class GeminiMetaGenerator {
                 val result = whisperClient.processAudio(null, videoUrl, "") { progress ->
                     SystemDiagnosticTracker.addLog("WHISPER", progress)
                 }
+                
+                videoInfo = result.videoInfo
                 
                 if (result.chunksJson.isNotBlank() && result.chunksJson != "[]") {
                     val chunksArray = JSONArray(result.chunksJson)
@@ -101,13 +104,15 @@ class GeminiMetaGenerator {
             أنت خبير في التعرف على تلاوات القرآن الكريم.
             لدينا مقطع فيديو/صوت بهذا الرابط: $videoUrl
             والنص المستخرج منه (إن وجد): "$transcription"
+            وبعض البيانات الوصفية من الفيديو (العنوان، الوصف، الكلمات المفتاحية):
+            $videoInfo
             ملاحظة (إن وجدت مشكلة في جلب النص): $whisperError
             
-            يرجى تحليل النص المستخرج (أو الاعتماد على الرابط إذا كان معروفا) لاستخراج المعلومات التالية:
+            يرجى تحليل النص المستخرج (أو الاعتماد على الرابط والبيانات الوصفية) لاستخراج المعلومات التالية:
             1. رقم السورة (1 إلى 114).
             2. رقم آية البداية.
             3. رقم آية النهاية.
-            4. اسم القارئ (مثل: مشاري العفاسي، عبدالباسط عبدالصمد... إذا لم تكن متأكدا اكتب "غير معروف").
+            4. اسم القارئ (مثل: مشاري العفاسي، عبدالباسط عبدالصمد... إذا لم تكن متأكدا اكتب "غير معروف"). ابحث جيداً في العنوان أو الوصف أو الكلمات المفتاحية.
             5. عنوان مناسب للمقطع (مثل: تلاوة خاشعة بصوت...).
             6. التصنيف الروحي (اختر واحدًا من: طمأنينة، خشوع، سكينة، دعاء).
             
