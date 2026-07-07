@@ -449,10 +449,7 @@ fun SettingsScreen(
                                                 chain.proceed(requestBuilder.build())
                                             }
                                             .build()
-                                        var modelToUse = geminiModel.trim()
-                                        if (modelToUse == "gemini-2.5-pro" || modelToUse == "gemini-pro" || modelToUse == "gemini-1.5-pro") {
-                                            modelToUse = "gemini-3.1-pro-preview"
-                                        }
+                                        val modelToUse = geminiModel.trim()
                                         val url = "https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${currentGeminiKey.trim()}"
                                         com.example.generator.SystemDiagnosticTracker.addLog("AUTOFILL", "الرابط المطلوب: $url")
                                         val jsonReq = JSONObject().apply {

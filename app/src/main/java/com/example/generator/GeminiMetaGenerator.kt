@@ -62,10 +62,7 @@ class GeminiMetaGenerator {
     ): ClipAnalysisResult? = withContext(Dispatchers.IO) {
         val settingsManager = SettingsManager(context)
         val apiKey = settingsManager.geminiApiKey.first()
-        var geminiModel = settingsManager.geminiModel.first().ifBlank { "gemini-3.1-pro-preview" }
-        if (geminiModel == "gemini-2.5-pro" || geminiModel == "gemini-pro" || geminiModel == "gemini-1.5-pro") {
-            geminiModel = "gemini-3.1-pro-preview"
-        }
+        var geminiModel = settingsManager.geminiModel.first().ifBlank { "gemini-1.5-pro" }
         
         if (apiKey.isBlank()) {
             return@withContext ClipAnalysisResult(0f, "", "Gemini API key is missing")
