@@ -95,7 +95,7 @@ class GeminiMetaGenerator {
                 return@withContext ClipAnalysisResult(relevance = 0f, analysis = "", error = "ليست هناك اي معلومات لهذا الرابط. يرجى إيقاف ميزة التخطي وإعادة المحاولة.")
             }
         } else {
-            SystemDiagnosticTracker.addLog("GEMINI", "Calling WhisperX for audio transcription of URL: $videoUrl")
+            SystemDiagnosticTracker.addLog("SYSTEM", "جاري تحويل الرابط إلى Space لمعالجة الصوت واستخراج النصوص: $videoUrl")
             try {
                 val whisperClient = WhisperXClient()
                 val result = whisperClient.processAudio(null, videoUrl, "") { progress ->
@@ -128,7 +128,7 @@ class GeminiMetaGenerator {
             }
         }
 
-        SystemDiagnosticTracker.addLog("GEMINI", "Sending data to Gemini API for metadata extraction.")
+        SystemDiagnosticTracker.addLog("GEMINI", "تم جلب المعلومات بنجاح وإعدادها. جاري الانتقال إلى إرسال المعلومات والبرومبت الاحترافي إلى نموذج ذكاء اصطناعي Gemini...")
         
         val prompt = """
             أنت خبير في التعرف على تلاوات القرآن الكريم.

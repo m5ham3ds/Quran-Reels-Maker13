@@ -46,7 +46,7 @@ class ProgressRequestBody(
 class WhisperXClient {
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(180, TimeUnit.SECONDS)
+        .readTimeout(600, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
@@ -90,7 +90,8 @@ class WhisperXClient {
             }
         }
 
-        onProgress("جاري معالجة الصوت والنص...")
+        SystemDiagnosticTracker.addLog("WHISPERX", "جاري إرسال الطلب إلى السيرفر المضيف (Space) للبدء...")
+        onProgress("جاري إرسال الطلب إلى السيرفر المضيف للبدء...")
         val payload = JSONObject().apply {
             val dataArray = JSONArray()
             dataArray.put(fileDataObj ?: JSONObject.NULL)
@@ -105,9 +106,15 @@ class WhisperXClient {
             .build()
 
         val predictRes = client.newCall(predictReq).execute()
-        if (!predictRes.isSuccessful) throw Exception("Predict API failed: ${predictRes.code}")
+        if (!predictRes.isSuccessful) {
+            SystemDiagnosticTracker.addLog("WHISPERX", "فشل الاتصال بالسيرفر: ${predictRes.code}")
+            throw Exception("Predict API failed: ${predictRes.code}")
+        }
         val predictBody = predictRes.body?.string() ?: ""
         val eventId = JSONObject(predictBody).getString("event_id")
+        
+        SystemDiagnosticTracker.addLog("WHISPERX", "نجح الاتصال بالسيرفر (EventID: $eventId). بدأ عملية الاستخراج والمعالجة...")
+        onProgress("بدأ عملية الاستخراج والمعالجة في السيرفر...")
 
         val streamReq = Request.Builder()
             .url("$baseUrl/gradio_api/call/process/$eventId")
@@ -119,11 +126,38 @@ class WhisperXClient {
         var errorLog = ""
         var videoInfo = ""
 
+        SystemDiagnosticTracker.addLog("WHISPERX", "جاري تتبع حالة العملية في السيرفر...")
         client.newCall(streamReq).execute().use { streamRes ->
             val source = streamRes.body?.source()
             while (source != null && !source.exhausted()) {
                 val line = source.readUtf8Line() ?: continue
-                if (line.startsWith("event: complete")) {
+                if (line.startsWith("event: generating") || line.startsWith("event: update")) {
+                    val dataLine = source.readUtf8Line() ?: ""
+                    if (dataLine.startsWith("data:")) {
+                        try {
+                            val dataJson = dataLine.substring(5).trim()
+                            val array = JSONArray(dataJson)
+                            if (array.length() > 0) {
+                                // Gradio often outputs lists of values or single strings for logs
+                                val logMsg = array.optString(0, "")
+                                if (logMsg.isNotBlank()) {
+                                    if (logMsg.length > 100) {
+                                        SystemDiagnosticTracker.addLog("WHISPERX_SPACE", "تحديث: جاري استخراج ومعالجة الصوت والنص... (بيانات متقدمة)")
+                                        onProgress("تحديث: جاري استخراج ومعالجة الصوت والنص...")
+                                    } else {
+                                        SystemDiagnosticTracker.addLog("WHISPERX_SPACE", logMsg)
+                                        onProgress(logMsg)
+                                    }
+                                }
+                            }
+                        } catch(e: Exception) {
+                            SystemDiagnosticTracker.addLog("WHISPERX", "تحديث: المعالجة مستمرة...")
+                            onProgress("المعالجة مستمرة في السيرفر...")
+                        }
+                    }
+                } else if (line.startsWith("event: complete")) {
+                    SystemDiagnosticTracker.addLog("WHISPERX", "تم استلام النتائج النهائية من السيرفر. جاري تحليل البيانات...")
+                    onProgress("تم استلام النتائج النهائية من السيرفر.")
                     val dataLine = source.readUtf8Line()
                     if (dataLine != null && dataLine.startsWith("data:")) {
                         val dataJson = dataLine.substring(5).trim()
