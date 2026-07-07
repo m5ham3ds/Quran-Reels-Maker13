@@ -66,6 +66,7 @@ fun SettingsScreen(
     val showTrans by settingsManager.showTranslation.collectAsState(initial = true)
     val language by settingsManager.language.collectAsState(initial = "ar")
     val videoQuality by settingsManager.videoQuality.collectAsState(initial = "Ultra")
+    val videoFps by settingsManager.videoFps.collectAsState(initial = 30)
     val backgroundKeywords by settingsManager.backgroundKeywords.collectAsState(initial = emptySet())
 
     val isArabic = language == "ar"
@@ -293,6 +294,70 @@ fun SettingsScreen(
                                         onClick = {
                                             scope.launch { settingsManager.setVideoQuality(option) }
                                             qualityExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = Color(0x15FFFFFF))
+                    // Video FPS Dropdown
+                    Column {
+                        Text(
+                            text = if (isArabic) "معدل الإطارات (FPS)" else "Video Framerate (FPS)",
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        var fpsExpanded by remember { mutableStateOf(false) }
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            Surface(
+                                onClick = { fpsExpanded = true },
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0x14FFFFFF),
+                                border = BorderStroke(1.dp, Color(0x2BFFFFFF)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${videoFps} إطار بالثانية",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = Color(0xFFCFD8DC)
+                                    )
+                                }
+                            }
+                            DropdownMenu(
+                                expanded = fpsExpanded,
+                                onDismissRequest = { fpsExpanded = false },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .background(CardBg)
+                            ) {
+                                val options = listOf(24, 30, 60, 90, 120)
+                                options.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = {
+                                             Text(
+                                                if (isArabic) "$option إطار بالثانية" else "$option FPS",
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                         },
+                                        onClick = {
+                                            scope.launch { settingsManager.setVideoFps(option) }
+                                            fpsExpanded = false
                                         }
                                     )
                                 }

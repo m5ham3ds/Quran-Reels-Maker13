@@ -272,8 +272,7 @@ fun MainNavigationScaffold(
                     Triple("font", if (isArabic) "تنسيق الخطوط والأنماط" else "Font & Custom Style", Icons.Default.Edit),
                     Triple("social", if (isArabic) "منصات النشر الفوري" else "Publish Channels", Icons.Default.Share),
                     Triple("video_editor", if (isArabic) "محرر الفيديو" else "Video Editor", Icons.Default.Edit),
-                    Triple("settings", if (isArabic) "إعدادات المنصة العامة" else "App Preferences", Icons.Outlined.Settings),
-                    Triple("video_settings", if (isArabic) "إعدادات تصدير الفيديو" else "Video Export Settings", Icons.Default.HighQuality)
+                    Triple("settings", if (isArabic) "إعدادات المنصة العامة" else "App Preferences", Icons.Outlined.Settings)
                 )
 
                 menuItems.forEach { (tabId, label, icon) ->
@@ -323,7 +322,6 @@ fun MainNavigationScaffold(
                     "social" -> if (isArabic) "النشر والربط" else "Publishing"
                     "video_editor" -> if (isArabic) "محرر الفيديو" else "Video Editor"
                     "settings" -> if (isArabic) "الإعدادات" else "Settings"
-                    "video_settings" -> if (isArabic) "إعدادات التصدير" else "Export Settings"
                     else -> ""
                 }
                 ReelHeader(
@@ -424,7 +422,6 @@ fun MainNavigationScaffold(
                     "social" -> SocialMediaScreen(isArabic = isArabic)
                     "video_editor" -> com.example.ui.VideoEditorScreen(settingsManager = settingsManager, isArabic = isArabic, onNavigateBack = { selectedTab = "home" })
                     "settings" -> SettingsScreen(onNavigateBack = { selectedTab = "home" })
-                    "video_settings" -> com.example.ui.settings.VideoExportSettingsScreen(settingsManager = settingsManager, isArabic = isArabic, onNavigateBack = { selectedTab = "home" })
                 }
             }
         }
