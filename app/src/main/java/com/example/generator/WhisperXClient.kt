@@ -11,6 +11,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 
 import okio.BufferedSink
@@ -127,9 +128,24 @@ class WhisperXClient {
         var videoInfo = ""
 
         SystemDiagnosticTracker.addLog("WHISPERX", "جاري تتبع حالة العملية في السيرفر...")
-        client.newCall(streamReq).execute().use { streamRes ->
-            val source = streamRes.body?.source()
-            while (source != null && !source.exhausted()) {
+        
+        var isStreamActive = true
+        val progressJob = kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            var seconds = 0
+            while(isStreamActive) {
+                kotlinx.coroutines.delay(5000)
+                seconds += 5
+                if(isStreamActive) {
+                    SystemDiagnosticTracker.addLog("WHISPERX", "المعالجة مستمرة في السيرفر... ($seconds ثانية)")
+                    onProgress("المعالجة مستمرة في السيرفر... ($seconds ثانية)")
+                }
+            }
+        }
+        
+        try {
+            client.newCall(streamReq).execute().use { streamRes ->
+                val source = streamRes.body?.source()
+                while (source != null && !source.exhausted()) {
                 val line = source.readUtf8Line() ?: continue
                 if (line.startsWith("event: generating") || line.startsWith("event: update")) {
                     val dataLine = source.readUtf8Line() ?: ""
@@ -186,6 +202,10 @@ class WhisperXClient {
                     throw Exception("Server Error: $dataLine")
                 }
             }
+        }
+        } finally {
+            isStreamActive = false
+            progressJob.cancel()
         }
         
         if (errorLog.contains("❌") || errorLog.contains("خطأ") || chunksJson.isBlank()) {

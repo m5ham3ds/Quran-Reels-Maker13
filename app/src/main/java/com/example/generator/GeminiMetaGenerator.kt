@@ -112,7 +112,7 @@ class GeminiMetaGenerator {
                         textBuilder.append(obj.optString("text", "")).append(" ")
                     }
                     transcription = textBuilder.toString().trim()
-                    SystemDiagnosticTracker.addLog("WHISPER", "Transcription successful: ${transcription.take(50)}...")
+                    SystemDiagnosticTracker.addLog("WHISPER", "نجح استخراج النص: ${transcription.take(50)}...")
                 }
                 
                 // Save to cache
@@ -124,7 +124,7 @@ class GeminiMetaGenerator {
                 SystemDiagnosticTracker.addLog("GEMINI", "تم حفظ معلومات الرابط في الذاكرة المؤقتة لاستخدامها لاحقاً.")
             } catch (e: Exception) {
                 whisperError = e.message ?: "Unknown"
-                SystemDiagnosticTracker.addLog("WHISPER", "Failed to extract text: ${e.message}")
+                SystemDiagnosticTracker.addLog("WHISPER", "فشل استخراج النصوص: ${e.message}")
             }
         }
 
